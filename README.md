@@ -20,3 +20,16 @@ Feature extraction pipeline for T6SS effector classification tasks (Bastion6-lik
 ## Sanity check
 Run a tiny in-memory example:
 `python scripts/demo_check_api.py`
+
+## Output files for assignment
+After `scripts/make_features.py` finishes, `out/` contains:
+- Combined full tables:
+  - `positive_features.csv/.tsv`
+  - `negative_features.csv/.tsv`
+  - `all_features.csv/.tsv`
+- Separate tables by feature type (for positive/negative/all):
+  - `*_aac.csv/.tsv` (AAC)
+  - `*_dpc.csv/.tsv` (DPC)
+  - `*_qso.csv/.tsv` (QSO)
+  - `*_ctdc.csv/.tsv` (7 physicochemical CTDC composition groups)
+  - `*_ctdt.csv/.tsv` (CTDT transition frequencies)
