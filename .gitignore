@@ -19,3 +19,5 @@ venv/
 # Project artifacts
 data/
 out/
+artifacts/
+*/models/*
