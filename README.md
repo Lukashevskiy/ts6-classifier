@@ -2,6 +2,8 @@
 
 Feature extraction pipeline for T6SS effector classification tasks (Bastion6-like).
 
+Submission-ready report: `REPORT.md`
+
 ## Structure
 - `src/t6` — core library (IO, features, pipeline)
 - `scripts/` — entrypoints and quick checks
