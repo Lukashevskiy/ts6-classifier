@@ -1,40 +1,45 @@
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from typing import List, Tuple
 import zipfile
 
 from ..domain.records import SequenceRecord
 from .fasta import read_fasta
 
-def _score_path(path: Path, include: Iterable[str], exclude: Iterable[str]) -> int:
-    name = path.as_posix().lower()
-    score = 0
-    for token in include:
-        if token in name:
-            score += 3
-    for token in exclude:
-        if token in name:
-            score -= 2
-    return score
+def _list_fasta_files(extract_dir: Path) -> List[Path]:
+    """List real FASTA files only (skip macOS metadata and hidden files)."""
+    out: List[Path] = []
+    for p in extract_dir.rglob("*.fasta"):
+        if not p.is_file():
+            continue
+        if "__MACOSX" in p.parts:
+            continue
+        if p.name.startswith(".") or p.name.startswith("._"):
+            continue
+        out.append(p)
+    return sorted(out)
 
 
-def _pick_fasta(paths: List[Path], include: Iterable[str], exclude: Iterable[str], label: str) -> Path:
+def _pick_pos_neg(paths: List[Path]) -> Tuple[Path, Path]:
     if not paths:
-        raise FileNotFoundError("No .fa/.fasta found after extracting zip")
-    scored = [(p, _score_path(p, include, exclude)) for p in paths]
-    scored.sort(key=lambda x: (x[1], x[0].as_posix()), reverse=True)
-    best_score = scored[0][1]
-    best = [p for p, s in scored if s == best_score and s > 0]
-    if len(best) == 1:
-        return best[0]
-    if len(paths) == 2 and best_score <= 0:
-        # Fall back to a simple 2-file dataset.
-        return paths[0] if label == "pos" else paths[1]
-    if best_score <= 0:
-        raise RuntimeError(
-            "Couldn't detect pos/neg FASTA. Rename files to include 'pos'/'neg' or update discovery."
-        )
+        raise FileNotFoundError("No *.fasta files found after extracting zip")
+
+    pos_candidates = [p for p in paths if "pos" in p.name.lower()]
+    neg_candidates = [p for p in paths if "neg" in p.name.lower()]
+
+    if len(pos_candidates) == 1 and len(neg_candidates) == 1:
+        return pos_candidates[0], neg_candidates[0]
+
+    if len(paths) == 2:
+        a, b = paths
+        if "pos" in a.name.lower() or "neg" in b.name.lower():
+            return a, b
+        if "neg" in a.name.lower() or "pos" in b.name.lower():
+            return b, a
+        return a, b
+
     raise RuntimeError(
-        f"Ambiguous {label} FASTA candidates: {[p.as_posix() for p in best]}"
+        "Cannot uniquely detect positive/negative FASTA files. "
+        f"Detected: {[p.as_posix() for p in paths]}"
     )
 
 
@@ -43,8 +48,9 @@ def load_training_zip(zip_path: str | Path) -> Tuple[List[SequenceRecord], List[
     Load Bastion6 training zip and return (positive_records, negative_records).
 
     Discovery rules:
-    - Prefer files/paths containing pos|positive and neg|negative tokens.
-    - If only two FASTA files exist, treat the first as pos and second as neg.
+    - Use only *.fasta files from extracted content.
+    - Skip metadata/hidden files (e.g. __MACOSX, ._*).
+    - Detect pos/neg by filename tokens; if exactly 2 files exist, use those.
     """
     zip_path = Path(zip_path)
     extract_dir = zip_path.parent / (zip_path.stem + "_extracted")
@@ -53,22 +59,8 @@ def load_training_zip(zip_path: str | Path) -> Tuple[List[SequenceRecord], List[
     with zipfile.ZipFile(zip_path, "r") as z:
         z.extractall(extract_dir)
 
-    fasta_files = sorted(
-        list(extract_dir.rglob("*.fa")) + list(extract_dir.rglob("*.fasta"))
-    )
-
-    pos_path = _pick_fasta(
-        fasta_files,
-        include=("pos", "positive"),
-        exclude=("neg", "negative"),
-        label="pos",
-    )
-    neg_path = _pick_fasta(
-        fasta_files,
-        include=("neg", "negative"),
-        exclude=("pos", "positive"),
-        label="neg",
-    )
+    fasta_files = _list_fasta_files(extract_dir)
+    pos_path, neg_path = _pick_pos_neg(fasta_files)
 
     pos_records = [SequenceRecord(id=i, seq=s, label=1) for i, s in read_fasta(str(pos_path))]
     neg_records = [SequenceRecord(id=i, seq=s, label=0) for i, s in read_fasta(str(neg_path))]
