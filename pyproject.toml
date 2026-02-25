@@ -1,0 +1,18 @@
+[project]
+name = "ts6classifier"
+version = "0.1.0"
+description = "Sequence and physicochemical feature extraction (AAC, DPC, QSO, CTD) for Bastion6-like tasks"
+requires-python = ">=3.11"
+dependencies = [
+  "biopython>=1.80",
+  "numpy>=1.22",
+  "pandas>=2.0",
+  "propy3>=1.1.1"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
